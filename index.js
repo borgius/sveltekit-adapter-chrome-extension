@@ -76,8 +76,8 @@ async function removeInlineScripts(directory, log) {
     filesOnly: true
   });
 
-  files.map(f => join(directory, f))
-    .forEach((file) => {
+  const pages = files.map(f => join(directory, f))
+    .map((file) => {
       const f = readFileSync(file);
       const $ = cheerio.load(f.toString());
       const node = $('script[type="module"]').get()[0];
@@ -94,7 +94,13 @@ async function removeInlineScripts(directory, log) {
       const p = `${directory}${fn}`;
       writeFileSync(p, innerScript);
       log(`wrote ${p}`);
+      return {
+        page: file,
+        selector: `[${attribs.trim().split(' ').slice(-1)}]`,
+        script: p
+      }
     });
+  writeFileSync(join(directory, 'pages.json'), JSON.stringify(pages, null, 2));  
 }
 /**
  * @param {string} directory
