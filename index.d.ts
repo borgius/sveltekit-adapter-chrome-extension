@@ -5,6 +5,7 @@ interface AdapterOptions {
 	assets?: string;
 	fallback?: string;
 	precompress?: boolean;
+	importPrefix?: string;
 }
 
 declare function plugin(options?: AdapterOptions): Adapter;

@@ -19,7 +19,8 @@ export default {
 			pages: 'build',
 			assets: 'build',
 			fallback: null,
-			precompress: false
+			precompress: false,
+			importPrefix: null
 		})
 	}
 };
@@ -44,6 +45,10 @@ Specify a fallback page for SPA mode, e.g. `index.html` or `200.html` or `404.ht
 ### precompress
 
 If `true`, precompresses files with brotli and gzip. This will generate `.br` and `.gz` files.
+
+### importPrefix
+
+If specified, will replae all imports with prefix, allow to inject svelte page to content. Example: `importPrefix: 'chrome-extension://alidacpbefflgmbeomhifiognomlldjt/'`
 
 ## SPA mode
 

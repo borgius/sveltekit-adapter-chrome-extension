@@ -1,5 +1,5 @@
 import { createReadStream, createWriteStream, readFileSync, statSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { join, basename } from 'path';
 import { pipeline } from 'stream';
 import glob from 'tiny-glob';
 import { promisify } from 'util';
@@ -9,7 +9,7 @@ import cheerio from 'cheerio';
 const pipe = promisify(pipeline);
 
 /** @type {import('.')} */
-export default function({ pages = 'build', assets = pages, fallback, precompress = false } = {}) {
+export default function({ pages = 'build', assets = pages, fallback, precompress = false, importPrefix = undefined } = {}) {
   return {
     name: 'sveltekit-adapter-chrome-extension',
 
@@ -47,6 +47,7 @@ export default function({ pages = 'build', assets = pages, fallback, precompress
 
       /* extension */
       await removeInlineScripts(assets, builder.log.minor);
+      if (importPrefix) await addImportPrefix(assets, importPrefix, builder.log.minor);
     }
   };
 }
@@ -66,6 +67,40 @@ function hash(value) {
   }
 
   return (hash >>> 0).toString(36);
+}
+
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+}
+
+async function addImportPrefix(directory, prefix, log) {
+  const files = await glob('**/*.{js,css}', {
+    cwd: directory,
+    dot: true,
+    aboslute: true,
+    filesOnly: true
+  });
+  const css = [];
+
+  const pages = files.filter(f => !f.includes('pages.js')).map(f => join(directory, f))
+    .map((file) => {
+      let js = readFileSync(file).toString();
+      for (const fileName of files) {        
+        const matches = js.match(new RegExp(`["'][^"']*${escapeRegExp(basename(fileName))}["']`, 'g'));
+        const unique = [...new Set(matches||[])];
+        unique.forEach(relative => {
+          const q=relative[0]; // Quota
+          js = js.replace(new RegExp(escapeRegExp(relative), 'g'), `${q}${prefix}${fileName}${q}`);
+        })
+      }
+      if (file.includes('start-')) js = js.replace('"/app/"', '""');
+      if (file.includes('.css')) css.push(file.replace(`${directory}/`, prefix));
+
+      writeFileSync(file, js);
+    });
+
+  writeFileSync(join(directory, 'css.js'), `export const css = ${JSON.stringify(css, null, 2)};`);  
+  
 }
 
 async function removeInlineScripts(directory, log) {
@@ -95,12 +130,12 @@ async function removeInlineScripts(directory, log) {
       writeFileSync(p, innerScript);
       log(`wrote ${p}`);
       return {
-        page: file,
-        selector: `[${attribs.trim().split(' ').slice(-1)}]`,
-        script: p
+        page: file.replace(directory, ''),
+        selector: `${attribs.trim().split(' ').slice(-1)}`,
+        script: fn
       }
     });
-  writeFileSync(join(directory, 'pages.json'), JSON.stringify(pages, null, 2));  
+  writeFileSync(join(directory, 'pages.js'), `export const pages = ${JSON.stringify(pages, null, 2)};`);  
 }
 /**
  * @param {string} directory
