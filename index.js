@@ -8,12 +8,18 @@ import cheerio from 'cheerio';
 
 const pipe = promisify(pipeline);
 
+const info = {
+  pages: {},
+  css: [],
+}
+
 /** @type {import('.')} */
-export default function({ pages = 'build', assets = pages, fallback, precompress = false, importPrefix = undefined } = {}) {
+export default function({ pages = 'build', assets = pages, fallback, precompress = false, importPrefix = undefined, meta = {} } = {}) {
   return {
     name: 'sveltekit-adapter-chrome-extension',
 
     async adapt(builder) {
+      
       builder.rimraf(assets);
       builder.rimraf(pages);
 
@@ -48,6 +54,8 @@ export default function({ pages = 'build', assets = pages, fallback, precompress
       /* extension */
       await removeInlineScripts(assets, builder.log.minor);
       if (importPrefix) await addImportPrefix(assets, importPrefix, builder.log.minor);
+      meta.importPrefix = importPrefix;
+      writeFileSync(join(assets, 'meta.js'), `export const meta = ${JSON.stringify({...meta, ...info}, null, 2)};`);  
     }
   };
 }
@@ -94,13 +102,10 @@ async function addImportPrefix(directory, prefix, log) {
         })
       }
       if (file.includes('start-')) js = js.replace('"/app/"', '""');
-      if (file.includes('.css')) css.push(file.replace(`${directory}/`, prefix));
+      if (file.includes('.css')) info.css.push(file.replace(`${directory}/`, prefix));
 
       writeFileSync(file, js);
     });
-
-  writeFileSync(join(directory, 'css.js'), `export const css = ${JSON.stringify(css, null, 2)};`);  
-  
 }
 
 async function removeInlineScripts(directory, log) {
@@ -135,7 +140,7 @@ async function removeInlineScripts(directory, log) {
         script: fn
       }
     });
-  writeFileSync(join(directory, 'pages.js'), `export const pages = ${JSON.stringify(pages, null, 2)};`);  
+  info.pages = pages;  
 }
 /**
  * @param {string} directory

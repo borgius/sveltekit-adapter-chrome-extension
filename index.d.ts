@@ -6,6 +6,7 @@ interface AdapterOptions {
 	fallback?: string;
 	precompress?: boolean;
 	importPrefix?: string;
+	meta?: Record<string, any>;
 }
 
 declare function plugin(options?: AdapterOptions): Adapter;
